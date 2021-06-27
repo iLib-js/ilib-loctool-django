@@ -38,9 +38,9 @@ var PythonFile = function(options) {
     this.project = options.project;
     this.pathName = options.pathName;
     this.type = options.type;
-    
+
     this.API = this.project.getAPI();
-    
+
     this.set = this.API.newTranslationSet(this.project ? this.project.sourceLocale : "zxx-XX");
 
     this.flavor = this.project && this.project.flavors && this.project.flavors.getFlavorForPath(this.pathName);

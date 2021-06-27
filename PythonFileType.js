@@ -140,8 +140,8 @@ PythonFileType.prototype.write = function(translations, locales) {
 
 PythonFileType.prototype.newFile = function(path) {
     return new PythonFile({
-        project: this.project, 
-        pathName: path, 
+        project: this.project,
+        pathName: path,
         type: this
     });
 };

@@ -45,7 +45,7 @@ match that expression. The possible settings are:
   of locale specifier that Django/python may be expecting
 
 ## Extracting Strings
- 
+
 This plugin will look for the string parameters of the calls to any of the
 following GNU gettext functions:
 
@@ -124,7 +124,7 @@ s = "Hello"
 
 gettext(s)    // error
 ```
- 
+
 # Translator Comments
 
 Any comment located on the line before an extracted string that starts with the
