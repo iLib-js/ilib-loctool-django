@@ -20,6 +20,7 @@
 if (!PythonFileType) {
     var PythonFileType = require("../PythonFileType.js");
     var CustomProject =  require("loctool/lib/CustomProject.js");
+    var ContextResourceString = require("loctool/lib/ContextResourceString");
 }
 
 var p = new CustomProject({
@@ -27,7 +28,19 @@ var p = new CustomProject({
     name: "webapp",
     sourceLocale: "en-US"
 }, "./test/testfiles", {
-    locales:["en-GB"]
+    locales:["en-GB"],
+    django: {
+        "mappings": {
+            "**/x.py": {
+                "template": "[dir]/[locale].po",
+                "resFileType": "po"
+            },
+            "**/y.py": {
+                "template": "[dir]/[locale]/LC_MESSAGES/django.po",
+                "resFileType": "po"
+            }
+        }
+    }
 });
 
 
@@ -35,9 +48,9 @@ module.exports.pyfiletype = {
     testPythonFileTypeConstructor: function(test) {
         test.expect(1);
 
-        var htf = new PythonFileType(p);
+        var pft = new PythonFileType(p);
 
-        test.ok(htf);
+        test.ok(pft);
 
         test.done();
     },
@@ -45,10 +58,10 @@ module.exports.pyfiletype = {
     testPythonFileTypeHandlesPythonTrue: function(test) {
         test.expect(2);
 
-        var htf = new PythonFileType(p);
-        test.ok(htf);
+        var pft = new PythonFileType(p);
+        test.ok(pft);
 
-        test.ok(htf.handles("foo.py"));
+        test.ok(pft.handles("foo.py"));
 
         test.done();
     },
@@ -56,10 +69,10 @@ module.exports.pyfiletype = {
     testPythonFileTypeHandlesPythonFalseClose: function(test) {
         test.expect(2);
 
-        var htf = new PythonFileType(p);
-        test.ok(htf);
+        var pft = new PythonFileType(p);
+        test.ok(pft);
 
-        test.ok(!htf.handles("foopy"));
+        test.ok(!pft.handles("foopy"));
 
         test.done();
     },
@@ -67,10 +80,10 @@ module.exports.pyfiletype = {
     testPythonFileTypeHandlesFalse: function(test) {
         test.expect(2);
 
-        var htf = new PythonFileType(p);
-        test.ok(htf);
+        var pft = new PythonFileType(p);
+        test.ok(pft);
 
-        test.ok(!htf.handles("foo.html"));
+        test.ok(!pft.handles("foo.html"));
 
         test.done();
     },
@@ -78,10 +91,48 @@ module.exports.pyfiletype = {
     testPythonFileTypeHandlesPythonTrueWithDir: function(test) {
         test.expect(2);
 
-        var htf = new PythonFileType(p);
-        test.ok(htf);
+        var pft = new PythonFileType(p);
+        test.ok(pft);
 
-        test.ok(htf.handles("a/b/c/foo.py"));
+        test.ok(pft.handles("a/b/c/foo.py"));
+
+        test.done();
+    },
+    
+    testPythonFileTypeGetResourceFile1: function(test) {
+        test.expect(2);
+
+        var pft = new PythonFileType(p);
+        test.ok(pft);
+
+        var res = new ContextResourceString({
+            project: "webapp",
+            sourceLocale: "en-US",
+            targetLocale: "de-DE",
+            pathName: "foo/bar/x.py"
+        });
+        var resFile = pft.getResourceFile(res);
+        test.ok(resFile);
+        test.equals(resFile.getPath(), "foo/bar/de-DE.po");
+
+        test.done();
+    },
+
+    testPythonFileTypeGetResourceFile2: function(test) {
+        test.expect(2);
+
+        var pft = new PythonFileType(p);
+        test.ok(pft);
+
+        var res = new ContextResourceString({
+            project: "webapp",
+            sourceLocale: "en-US",
+            targetLocale: "de-DE",
+            pathName: "foo/bar/y.py"
+        });
+        var resFile = pft.getResourceFile(res);
+        test.ok(resFile);
+        test.equals(resFile.getPath(), "foo/bar/de-DE/LC_MESSAGES/django.po");
 
         test.done();
     }

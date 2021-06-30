@@ -138,6 +138,41 @@ PythonFileType.prototype.write = function(translations, locales) {
     }
 };
 
+/**
+ * Find or create the resource file object for the given project, context,
+ * and locale.
+ *
+ * @param {Resource} res resource to find the resource file for
+ * @return {IosStringsFile} the Android resource file that serves the
+ * given project, context, and locale.
+ */
+PythonFileType.prototype.getResourceFile = function(res) {
+    var locale = res.getTargetLocale() || res.getSourceLocale(),
+        pathName = res.getPath(),
+        type = res.getDataType(),
+        flavor = res.getFlavor && res.getFlavor();
+    var newPath = this.getResourceFilePath(locale, pathName, type, flavor);
+
+    logger.trace("getResourceFile converted path " + pathName + " for locale " + locale + " to path " + newPath);
+
+    var resfile = this.resourceFiles && this.resourceFiles[newPath];
+
+    if (!resfile) {
+        resfile = this.resourceFiles[newPath] = new IosStringsFile({
+            project: this.project,
+            locale: locale || this.project.sourceLocale,
+            pathName: newPath,
+            type: this
+        });
+
+        logger.trace("Defining new resource file");
+    } else {
+        logger.trace("Returning existing resource file");
+    }
+
+    return resfile;
+};
+
 PythonFileType.prototype.newFile = function(path) {
     return new PythonFile({
         project: this.project,
