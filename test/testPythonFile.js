@@ -24,6 +24,7 @@ if (!PythonFile) {
     var PythonFileType = require("../PythonFileType.js");
     var CustomProject =  require("loctool/lib/CustomProject.js");
     var ContextResourceString =  require("loctool/lib/ContextResourceString.js");
+    var ResourcePlural =  require("loctool/lib/ResourcePlural.js");
 }
 
 var p = new CustomProject({
@@ -149,7 +150,7 @@ module.exports.pyfile = {
     },
 
     testPythonFileParseRightFunction: function(test) {
-        test.expect(5);
+        test.expect(3);
 
         var pf = new PythonFile({
             project: p,
@@ -282,7 +283,7 @@ module.exports.pyfile = {
     },
 
     testPythonFileParseGettextNoop: function(test) {
-        test.expect(5);
+        test.expect(6);
 
         var pf = new PythonFile({
             project: p,
@@ -306,7 +307,7 @@ module.exports.pyfile = {
     },
 
     testPythonFileParsePgettext: function(test) {
-        test.expect(5);
+        test.expect(6);
 
         var pf = new PythonFile({
             project: p,
@@ -320,7 +321,7 @@ module.exports.pyfile = {
         var set = pf.getTranslationSet();
         test.ok(set);
 
-        var r = set.getBySource("This is a test");
+        var r = set.getBySource("This is a test", "This is context");
         test.ok(r);
         test.equal(r.getSource(), "This is a test");
         test.equal(r.getKey(), "This is a test");
@@ -330,7 +331,7 @@ module.exports.pyfile = {
     },
 
     testPythonFileParsePgettextLazy: function(test) {
-        test.expect(5);
+        test.expect(6);
 
         var pf = new PythonFile({
             project: p,
@@ -344,7 +345,7 @@ module.exports.pyfile = {
         var set = pf.getTranslationSet();
         test.ok(set);
 
-        var r = set.getBySource("This is a test");
+        var r = set.getBySource("This is a test", "This is context");
         test.ok(r);
         test.equal(r.getSource(), "This is a test");
         test.equal(r.getKey(), "This is a test");
@@ -368,9 +369,36 @@ module.exports.pyfile = {
         var set = pf.getTranslationSet();
         test.ok(set);
 
-        var r = set.getBySource("This is the singular");
+        var r = set.get(ResourcePlural.hashKey("webapp", undefined, "en-US", "This is the singular"));
         test.ok(r);
-        test.equal(r.getType, "plural");
+        test.equal(r.getType(), "plural");
+        var pl = r.getSourcePlurals();
+        test.ok(pl);
+        test.equal(pl.one, "This is the singular");
+        test.equal(pl.other, "This is the plural");
+        test.equal(r.getKey(), "This is the singular");
+
+        test.done();
+    },
+
+    testPythonFileParseNgettextRFString: function(test) {
+        test.expect(8);
+
+        var pf = new PythonFile({
+            project: p,
+            pathName: undefined,
+            type: pft
+        });
+        test.ok(pf);
+
+        pf.parse('ngettext(rf"This is the singular", rf"This is the plural", count)');
+
+        var set = pf.getTranslationSet();
+        test.ok(set);
+
+        var r = set.get(ResourcePlural.hashKey("webapp", undefined, "en-US", "This is the singular"));
+        test.ok(r);
+        test.equal(r.getType(), "plural");
         var pl = r.getSourcePlurals();
         test.ok(pl);
         test.equal(pl.one, "This is the singular");
@@ -395,9 +423,9 @@ module.exports.pyfile = {
         var set = pf.getTranslationSet();
         test.ok(set);
 
-        var r = set.getBySource("This is the singular");
+        var r = set.get(ResourcePlural.hashKey("webapp", undefined, "en-US", "This is the singular"));
         test.ok(r);
-        test.equal(r.getType, "plural");
+        test.equal(r.getType(), "plural");
         var pl = r.getSourcePlurals();
         test.ok(pl);
         test.equal(pl.one, "This is the singular");
@@ -422,9 +450,9 @@ module.exports.pyfile = {
         var set = pf.getTranslationSet();
         test.ok(set);
 
-        var r = set.getBySource("This is the singular");
+        var r = set.getBySource("This is the singular", "This is context");
         test.ok(r);
-        test.equal(r.getType, "plural");
+        test.equal(r.getType(), "plural");
         var pl = r.getSourcePlurals();
         test.ok(pl);
         test.equal(pl.one, "This is the singular");
@@ -450,9 +478,9 @@ module.exports.pyfile = {
         var set = pf.getTranslationSet();
         test.ok(set);
 
-        var r = set.getBySource("This is the singular");
+        var r = set.getBySource("This is the singular", "This is context");
         test.ok(r);
-        test.equal(r.getType, "plural");
+        test.equal(r.getType(), "plural");
         var pl = r.getSourcePlurals();
         test.ok(pl);
         test.equal(pl.one, "This is the singular");

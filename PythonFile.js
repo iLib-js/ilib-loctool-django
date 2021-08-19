@@ -124,7 +124,7 @@ PythonFile.cleanString = function(string) {
  * @returns {String} a unique key for this string
  */
 PythonFile.prototype.makeKey = function(source) {
-    return this.API.utils.hashKey(PythonFile.cleanString(source));
+    return PythonFile.cleanString(source);
 };
 
 var reGetStringBogusConcatenation1 = new RegExp(/(^R|\WR)B\.getString\s*\(\s*"((\\"|[^"])*)"\s*\+/g);
@@ -134,7 +134,12 @@ var reGetStringBogusParam = new RegExp(/(^R|\WR)B\.getString\s*\([^"\)]*\)/g);
 var reGetString = new RegExp(/(^R|\WR)B\.getString\s*\(\s*"((\\"|[^"])*)"\s*\)/g);
 var reGetStringWithId = new RegExp(/(^R|\WR)B\.getString\("((\\"|[^"])*)"\s*,\s*"((\\"|[^"])*)"\)/g);
 
-var reI18nComment = new RegExp("//\\s*i18n\\s*:\\s*(.*)$");
+var reUnderscore = new RegExp(/(^_|^gettext|^gettext_lazy|^gettext_noop|\W_|\Wgettext|\Wgettext_lazy|\Wgettext_noop)\s*\(\s*(rf?|f|u)?('((\\'|[^'])*)'|"((\\"|[^"])*)")\s*\)/g);
+var reContext = new RegExp(/(^pgettext|^pgettext_lazy|\Wpgettext|\Wpgettext_lazy)\s*\(\s*(rf?|f|u)?('((\\'|[^'])*)'|"((\\"|[^"])*)")\s*,\s*('((\\'|[^'])*)'|"((\\"|[^"])*)")\s*\)/g);
+var rePlural = new RegExp(/(^ngettext|^ngettext_lazy|\Wngettext|\Wngettext_lazy)\s*\(\s*(rf?|f|u)?('((\\'|[^'])*)'|"((\\"|[^"])*)")\s*,\s*(rf?|f|u)?('((\\'|[^'])*)'|"((\\"|[^"])*)")\s*,/g);
+var reContextPlural = new RegExp(/(^npgettext|^npgettext_lazy|\Wnpgettext|\Wnpgettext_lazy)\s*\(\s*('((\\'|[^'])*)'|"((\\"|[^"])*)")\s*,\s*(rf?|f|u)?('((\\'|[^'])*)'|"((\\"|[^"])*)")\s*,\s*(rf?|f|u)?('((\\'|[^'])*)'|"((\\"|[^"])*)")\s*,/g);
+
+var reI18nComment = new RegExp("//\\s*(.*)$");
 
 /**
  * Parse the data string looking for the localizable strings and add them to the
@@ -145,24 +150,33 @@ PythonFile.prototype.parse = function(data) {
     logger.debug("Extracting strings from " + this.pathName);
     this.resourceIndex = 0;
 
-    reGetString.lastIndex = 0; // for safety
-    var result = reGetString.exec(data);
-    while (result && result.length > 1 && result[2]) {
-        logger.trace("Found string key: " + this.makeKey(result[2]) + ", string: '" + result[2] + "', comment: " + (result.length > 4 ? result[4] : undefined));
-        if (result[2] && result[2].length) {
+    var source, key, context, plural, last, line, commentResult, result, r;
+    
+    reUnderscore.lastIndex = 0; // for safety
+    result = reUnderscore.exec(data);
+    while (result && result.length > 3 && result[3]) {
+        source = result[4] || result[6];
+        key = this.makeKey(source);
+        logger.trace("Found string key: " + key + ", string: '" + source);
+        if (source && source.length) {
 
-            var last = data.indexOf('\n', reGetString.lastIndex);
+            last = data.indexOf('\n', reUnderscore.lastIndex);
             last = (last === -1) ? data.length : last;
-            var line = data.substring(reGetString.lastIndex, last);
-            var commentResult = reI18nComment.exec(line);
+            line = data.substring(reUnderscore.lastIndex, last);
+            commentResult = reI18nComment.exec(line);
             comment = (commentResult && commentResult.length > 1) ? commentResult[1] : undefined;
 
-            var r = this.API.newResource({
+            // no-op strings are extracted, but not translated
+            if (result[1] === "gettext_noop") {
+                comment = "DO NOT TRANSLATE" + (comment ? " " + comment : '');
+            }
+
+            r = this.API.newResource({
                 resType: "string",
                 project: this.project.getProjectId(),
-                key: this.makeKey(result[2]),
+                key: key,
                 sourceLocale: this.project.sourceLocale,
-                source: this.API.utils.trimEscaped(PythonFile.unescapeString(result[2])),
+                source: this.API.utils.trimEscaped(PythonFile.unescapeString(source)),
                 autoKey: true,
                 pathName: this.pathName,
                 state: "new",
@@ -174,29 +188,76 @@ PythonFile.prototype.parse = function(data) {
             this.set.add(r);
         } else {
             logger.warn("Warning: Bogus empty string in get string call: ");
-            logger.warn("... " + data.substring(result.index, reGetString.lastIndex) + " ...");
+            logger.warn("... " + data.substring(result.index, reUnderscore.lastIndex) + " ...");
         }
         result = reGetString.exec(data);
     }
 
-    reGetStringWithId.lastIndex = 0; // for safety
-    result = reGetStringWithId.exec(data);
-    while (result && result.length > 2 && result[2] && result[4]) {
-        logger.trace("Found string '" + result[2] + "' with unique key " + result[4] + ", comment: " + (result.length > 4 ? result[4] : undefined));
-        if (result[2] && result[4] && result[2].length && result[4].length) {
-
-            var last = data.indexOf('\n', reGetStringWithId.lastIndex);
+    reContext.lastIndex = 0; // for safety
+    result = reContext.exec(data);
+    while (result && result.length > 3 && result[3]) {
+        source = result[4] || result[6];
+        key = this.makeKey(source);
+        logger.trace("Found string key: " + key + ", string: '" + source);
+        if (source && source.length) {
+            last = data.indexOf('\n', reContext.lastIndex);
             last = (last === -1) ? data.length : last;
-            var line = data.substring(reGetStringWithId.lastIndex, last);
-            var commentResult = reI18nComment.exec(line);
+            line = data.substring(reContext.lastIndex, last);
+            commentResult = reI18nComment.exec(line);
             comment = (commentResult && commentResult.length > 1) ? commentResult[1] : undefined;
 
-            var r = this.API.newResource({
+            if (result[8]) {
+                context = result[9] || result[11];
+            }
+
+            r = this.API.newResource({
                 resType: "string",
                 project: this.project.getProjectId(),
-                key: result[4],
+                key: key,
                 sourceLocale: this.project.sourceLocale,
-                source: PythonFile.cleanString(result[2]),
+                source: this.API.utils.trimEscaped(PythonFile.unescapeString(source)),
+                autoKey: true,
+                pathName: this.pathName,
+                state: "new",
+                comment: comment,
+                context: context,
+                datatype: this.type.datatype,
+                flavor: this.flavor,
+                index: this.resourceIndex++
+            });
+            this.set.add(r);
+        } else {
+            logger.warn("Warning: Bogus empty string in get string call: ");
+            logger.warn("... " + data.substring(result.index, reContext.lastIndex) + " ...");
+        }
+        result = reGetString.exec(data);
+    }
+
+    rePlural.lastIndex = 0; // for safety
+    result = rePlural.exec(data);
+    while (result && result.length > 3 && result[3]) {
+        source = result[4] || result[6];
+        key = this.makeKey(source);
+        logger.trace("Found string key: " + key + ", string: '" + source);
+        if (source && source.length) {
+            plural = result[10] || result[12];
+
+            last = data.indexOf('\n', rePlural.lastIndex);
+            last = (last === -1) ? data.length : last;
+            line = data.substring(rePlural.lastIndex, last);
+            commentResult = reI18nComment.exec(line);
+            comment = (commentResult && commentResult.length > 1) ? commentResult[1] : undefined;
+
+            r = this.API.newResource({
+                resType: "plural",
+                project: this.project.getProjectId(),
+                key: key,
+                sourceLocale: this.project.sourceLocale,
+                sourcePlurals: {
+                    one: this.API.utils.trimEscaped(PythonFile.unescapeString(source)),
+                    other: this.API.utils.trimEscaped(PythonFile.unescapeString(plural))
+                },
+                autoKey: true,
                 pathName: this.pathName,
                 state: "new",
                 comment: comment,
@@ -207,9 +268,53 @@ PythonFile.prototype.parse = function(data) {
             this.set.add(r);
         } else {
             logger.warn("Warning: Bogus empty string in get string call: ");
-            logger.warn("... " + data.substring(result.index, reGetString.lastIndex) + " ...");
+            logger.warn("... " + data.substring(result.index, rePlural.lastIndex) + " ...");
         }
-        result = reGetStringWithId.exec(data);
+        result = reGetString.exec(data);
+    }
+
+    reContextPlural.lastIndex = 0; // for safety
+    result = reContextPlural.exec(data);
+    while (result && result.length > 8 && result[8]) {
+        source = result[8] || result[10];
+        key = this.makeKey(source);
+        logger.trace("Found string key: " + key + ", string: '" + source);
+        if (source && source.length) {
+            plural = result[14] || result[16];
+
+            last = data.indexOf('\n', reContextPlural.lastIndex);
+            last = (last === -1) ? data.length : last;
+            line = data.substring(reContextPlural.lastIndex, last);
+            commentResult = reI18nComment.exec(line);
+            comment = (commentResult && commentResult.length > 1) ? commentResult[1] : undefined;
+
+            if (result[4]) {
+                context = result[5] || result[7];
+            }
+
+            r = this.API.newResource({
+                resType: "plural",
+                project: this.project.getProjectId(),
+                key: key,
+                sourceLocale: this.project.sourceLocale,
+                sourcePlurals: {
+                    one: this.API.utils.trimEscaped(PythonFile.unescapeString(source)),
+                    other: this.API.utils.trimEscaped(PythonFile.unescapeString(plural))
+                },
+                autoKey: true,
+                pathName: this.pathName,
+                state: "new",
+                comment: comment,
+                datatype: this.type.datatype,
+                flavor: this.flavor,
+                index: this.resourceIndex++
+            });
+            this.set.add(r);
+        } else {
+            logger.warn("Warning: Bogus empty string in get string call: ");
+            logger.warn("... " + data.substring(result.index, reContextPlural.lastIndex) + " ...");
+        }
+        result = reGetString.exec(data);
     }
 
     // now check for and report on errors in the source
